@@ -97,7 +97,7 @@ class BlackholeIntegration(CachedBalancesIntegration):
 if __name__ == "__main__":
     # Simple test
     integration = BlackholeIntegration(
-        integration_id=IntegrationID.BLACKHOLE_SUSD_POOL,
+        integration_id=IntegrationID.BLACKHOLE_SUSDE_POOL,
         start_block=15817416,
         chain=Chain.AVALANCHE,
         summary_cols=[SummaryColumn.BLACKHOLE_POOL_PTS],

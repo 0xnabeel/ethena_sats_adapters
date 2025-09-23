@@ -561,7 +561,7 @@ class IntegrationID(Enum):
         Token.USDE,
     )
 
-    BLACKHOLE_USDE_POOL = {
+    BLACKHOLE_SUSDE_POOL = {
         "blackhole_usde_pool",
         "Blackhole USDe Pool",
         Token.SUSDE
