@@ -561,11 +561,11 @@ class IntegrationID(Enum):
         Token.USDE,
     )
 
-    BLACKHOLE_SUSDE_POOL = {
+    BLACKHOLE_SUSDE_POOL = (
         "blackhole_usde_pool",
         "Blackhole USDe Pool",
         Token.SUSDE
-    }
+    )
 
     def __init__(self, column_name: str, description: str, token: Token = Token.USDE):
         self.column_name = column_name

@@ -10,7 +10,7 @@ from integrations.integration_ids import IntegrationID
 
 
 class BlackholeIntegration(CachedBalancesIntegration):
-    """Integration for tracking Blackhole LP positions (sUSD)"""
+    """Integration for tracking Blackhole LP positions (sUSDe)"""
 
     def __init__(
         self,
@@ -24,7 +24,8 @@ class BlackholeIntegration(CachedBalancesIntegration):
         end_block: Optional[int] = None,
         ethereal_multiplier: int = 0,
         ethereal_multiplier_func: Optional[callable] = None,
-        ticker: str = "sUSD",  # 👈 Blackhole requires ticker
+        ticker: str = "sUSDe",
+        token_address: str = "0x211cc4dd073734da055fbf44a2b4667d5e5fe5d2",
     ):
         super().__init__(
             integration_id,
@@ -38,56 +39,98 @@ class BlackholeIntegration(CachedBalancesIntegration):
             ethereal_multiplier,
             ethereal_multiplier_func,
         )
-        self.api_url = "https://api.blackhole.xyz/v1/partner-tasks/ethena/user-balances"
+        # Base URL without query params
+        self.api_url = (
+            "https://fbqe61zd1l.execute-api.us-east-1.amazonaws.com/"
+            "temp-stage-pool-balances/totalPoolBalances"
+        )
         self.ticker = ticker
+        self.token_address = token_address
 
     def get_block_balances(
         self, cached_data: Dict[int, Dict[ChecksumAddress, float]], blocks: List[int]
     ) -> Dict[int, Dict[ChecksumAddress, float]]:
-        """Fetch balances for sUSD on Blackhole by block number, handling pagination."""
+        """Fetch balances for sUSDe on Blackhole by block number, with isNext pagination."""
         result = {}
 
         for block in blocks:
             if block in cached_data:
+                print(f"[INFO] Using cached data for block {block}")
                 result[block] = cached_data[block]
                 continue
 
-            block_data = {}
+            block_data: Dict[ChecksumAddress, float] = {}
             page_number = 1
 
             try:
                 while True:
+                    print(f"[INFO] Fetching block={block}, page={page_number}")
+
                     response = requests.get(
                         self.api_url,
                         params={
                             "ticker": self.ticker,
+                            "tokenAddress": self.token_address,
                             "blockNumber": block,
                             "pageNumber": page_number,
                         },
                         timeout=10,
                     )
-                    data = response.json()
+                    print(f"[INFO] Response status={response.status_code}")
 
-                    if data.get("code") != 200 or data["data"].get("status") != 0:
-                        print(f"Unexpected API response for block {block}, page {page_number}: {data}")
+                    try:
+                        data = response.json()
+                    except Exception as e:
+                        print(
+                            f"[DEBUG] Failed to decode JSON: {e}, "
+                            f"text={response.text[:200]}"
+                        )
                         break
 
-                    balances = data["data"].get("balances", {})
+                    print(f"[INFO] Keys in response: {list(data.keys())}")
+
+                    balances = {}
+                    if "data" in data and isinstance(data["data"], dict):
+                        balances = data["data"].get("balances", {})
+                        print(f"[INFO] Using 'data.balances', count={len(balances)}")
+                        is_next = data["data"].get("isNext", False)
+                    elif "aggregatedBalances" in data:
+                        balances = data["aggregatedBalances"]
+                        print(
+                            f"[INFO] Using 'aggregatedBalances', count={len(balances)}"
+                        )
+                        is_next = data.get("isNext", False)
+                    else:
+                        print("[INFO] No balances field found")
+                        break
+
                     if not balances:
-                        # No more pages
+                        print(
+                            f"[INFO] No balances found, breaking loop at page {page_number}"
+                        )
                         break
 
                     for addr, bal in balances.items():
+                        print(f"[INFO] addr={addr}, bal={bal}")
                         checksum_addr = Web3.to_checksum_address(addr)
                         value = float(bal)
                         if value > 0:
-                            # Accumulate values if the same user appears on multiple pages
-                            block_data[checksum_addr] = block_data.get(checksum_addr, 0.0) + value
+                            block_data[checksum_addr] = block_data.get(
+                                checksum_addr, 0.0
+                            ) + value
 
-                    page_number += 1
+                    if is_next:
+                        page_number += 1
+                        print(f"[INFO] isNext=True → Moving to next page={page_number}")
+                    else:
+                        print("[INFO] isNext=False → Stopping pagination")
+                        break
 
             except Exception as e:
-                print(f"Error fetching data for block {block}, page {page_number}: {str(e)}")
+                print(
+                    f"Error fetching data for block {block}, page {page_number}: {str(e)}"
+                )
+                break
 
             result[block] = block_data
 
@@ -98,11 +141,11 @@ if __name__ == "__main__":
     # Simple test
     integration = BlackholeIntegration(
         integration_id=IntegrationID.BLACKHOLE_SUSDE_POOL,
-        start_block=15817416,
+        start_block=69216432,
         chain=Chain.AVALANCHE,
         summary_cols=[SummaryColumn.BLACKHOLE_POOL_PTS],
         reward_multiplier=1,
     )
 
-    result = integration.get_block_balances(cached_data={}, blocks=[15817416])
+    result = integration.get_block_balances(cached_data={}, blocks=[69216432])
     print("Block balances:", result)
