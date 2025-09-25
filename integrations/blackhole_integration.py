@@ -18,7 +18,7 @@ class BlackholeIntegration(CachedBalancesIntegration):
         start_block: int,
         chain: Chain = Chain.AVALANCHE,
         summary_cols: Optional[List[SummaryColumn]] = None,
-        reward_multiplier: int = 1,
+        reward_multiplier: int = 30,
         balance_multiplier: int = 1,
         excluded_addresses: Optional[Set[ChecksumAddress]] = None,
         end_block: Optional[int] = None,
@@ -141,11 +141,11 @@ if __name__ == "__main__":
     # Simple test
     integration = BlackholeIntegration(
         integration_id=IntegrationID.BLACKHOLE_SUSDE_POOL,
-        start_block=69216432,
+        start_block=69219496,
         chain=Chain.AVALANCHE,
         summary_cols=[SummaryColumn.BLACKHOLE_POOL_PTS],
         reward_multiplier=1,
     )
 
-    result = integration.get_block_balances(cached_data={}, blocks=[69216432])
+    result = integration.get_block_balances(cached_data={}, blocks=[69219496])
     print("Block balances:", result)
